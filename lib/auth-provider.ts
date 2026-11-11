@@ -1,4 +1,5 @@
 import {db} from './supabase';
+import {isPlaceholderPhone} from './placeholders';
 
 export type SignInInput={phone:string;firstName:string};
 export interface AuthProvider {
@@ -7,6 +8,7 @@ export interface AuthProvider {
 }
 export class PhoneNameAuthProvider implements AuthProvider {
   async signIn(input:SignInInput){
+    if(isPlaceholderPhone(input.phone))return null;
     const {data,error}=await db().from('users').select('id,first_name').eq('phone',input.phone).maybeSingle();
     if(error)throw error;
     if(!data||data.first_name.trim().toLowerCase()!==input.firstName.trim().toLowerCase())return null;

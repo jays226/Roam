@@ -10,9 +10,9 @@ export async function GET(req:Request){
   try{
     const tripId=new URL(req.url).searchParams.get('trip_id');if(!tripId)return fail('Trip ID is required.');
     const {uid,s}=await authorize(tripId);
-    const [options,polls,availability,itinerary,comments,chat,members,expenses,requests,pulses,origins,events]=await Promise.all([
+    const [options,polls,availability,itinerary,comments,chat,members,expenses,requests,pulses,origins,events,tripDays]=await Promise.all([
       s.from('options').select('*').eq('trip_id',tripId).order('sort_order'),
-      s.from('polls').select('*,poll_options(*),ballots(poll_option_id,user_id,users(first_name,last_name))').eq('trip_id',tripId).order('created_at',{ascending:false}),
+      s.from('polls').select('*,poll_options:poll_options!poll_options_poll_id_fkey(*),ballots(poll_option_id,user_id,users(first_name,last_name))').eq('trip_id',tripId).order('created_at',{ascending:false}),
       s.from('availability').select('user_id,date,is_available').eq('trip_id',tripId),
       s.from('itinerary_items').select('*,activity_signups(user_id,users(first_name,last_name))').eq('trip_id',tripId).order('day').order('time_label'),
       s.from('comments').select('*,users(first_name,last_name)').eq('trip_id',tripId).order('created_at'),
@@ -22,10 +22,12 @@ export async function GET(req:Request){
       s.from('booking_requests').select('*,users(first_name,last_name)').eq('trip_id',tripId).order('created_at',{ascending:false}),
       s.from('pulse_responses').select('user_id,disappointment,organizer_wtp,comment,created_at').eq('trip_id',tripId),
       s.from('trip_origins').select('user_id,airport,users(first_name,last_name)').eq('trip_id',tripId),
-      s.from('events').select('id,user_id,event_type,created_at,metadata,users(first_name)').eq('trip_id',tripId).order('created_at',{ascending:false}).limit(100)
+      s.from('events').select('id,user_id,event_type,created_at,metadata,users(first_name)').eq('trip_id',tripId).order('created_at',{ascending:false}).limit(100),
+      s.from('trip_days').select('day,city').eq('trip_id',tripId).order('day')
     ]);
     for(const result of [options,polls,availability,itinerary,comments,chat,members,expenses,requests,pulses,origins,events])if(result.error)throw result.error;
-    return NextResponse.json({user_id:uid,options:options.data||[],polls:polls.data||[],availability:availability.data||[],itinerary:itinerary.data||[],comments:comments.data||[],chat:chat.data||[],members:members.data||[],expenses:expenses.data||[],requests:requests.data||[],pulses:pulses.data||[],origins:origins.data||[],events:events.data||[]});
+    if(tripDays.error&&!['42P01','PGRST205'].includes(tripDays.error.code||''))throw tripDays.error;
+    return NextResponse.json({user_id:uid,options:options.data||[],polls:polls.data||[],availability:availability.data||[],itinerary:itinerary.data||[],comments:comments.data||[],chat:chat.data||[],members:members.data||[],expenses:expenses.data||[],requests:requests.data||[],pulses:pulses.data||[],origins:origins.data||[],events:events.data||[],days:tripDays.data||[]});
   }catch(e){return fail(e instanceof Error?e.message:'Could not load the plan.',401)}
 }
 
@@ -85,6 +87,23 @@ export async function POST(req:Request){
     if(action==='itinerary_add'){
       if(!planner)return fail('Only planners can edit the itinerary.',403);const title=String(x.title||'').trim();if(!title)return fail('Add an activity name.');
       const {data,error}=await s.from('itinerary_items').insert({trip_id:tripId,title,place:x.place||null,day:x.day||null,time_label:x.time_label||null,note:x.note||null,url:x.url||null,cost:Number(x.cost)||null,cost_type:x.cost_type==='per_signup'?'per_signup':'shared',capacity:Number(x.capacity)||null,created_by:uid}).select().single();if(error)throw error;await emit(s,tripId,uid,'itinerary_item_added',{item_id:data.id});return NextResponse.json({ok:true,data});
+    }
+    if(action==='day_cities_save'){
+      if(!planner)return fail('Only planners can edit the daily city plan.',403);
+      const days=(Array.isArray(x.days)?x.days:[]).slice(0,60) as {day?:string;city?:string}[];
+      if(!days.length)return fail('Add at least one trip day.');
+      const {data:trip,error:tripError}=await s.from('trips').select('start_date,end_date').eq('id',tripId).maybeSingle();
+      if(tripError)throw tripError;if(!trip)return fail('Trip not found.',404);
+      const rows=[] as {trip_id:string;day:string;city:string;updated_by:string;updated_at:string}[];
+      for(const entry of days){
+        const day=String(entry.day||''),city=String(entry.city||'').trim();
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!city||city.length>100)return fail('Each day needs a valid date and city.');
+        if((trip.start_date&&day<trip.start_date)||(trip.end_date&&day>trip.end_date))return fail('A city date is outside this trip.');
+        rows.push({trip_id:tripId,day,city,updated_by:uid,updated_at:new Date().toISOString()});
+      }
+      const {error}=await s.from('trip_days').upsert(rows,{onConflict:'trip_id,day'});
+      if(error){if(['42P01','PGRST205'].includes(error.code||''))return fail('Apply supabase/migrations/0003_trip_day_cities.sql to enable saving city assignments.',503);throw error;}
+      await emit(s,tripId,uid,'trip_day_cities_saved',{days:rows.length});return NextResponse.json({ok:true});
     }
     if(action==='activity_signup'){
       const {data:item}=await s.from('itinerary_items').select('id,capacity').eq('trip_id',tripId).eq('id',x.item_id).maybeSingle();if(!item)return fail('Activity not found.');

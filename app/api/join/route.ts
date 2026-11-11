@@ -1,12 +1,14 @@
 import {NextResponse} from 'next/server';
 import {db} from '@/lib/supabase';
 import {startSession} from '@/lib/session';
+import {isPlaceholderPhone} from '@/lib/placeholders';
 
 function normalizePhone(value:string){const digits=value.replace(/\D/g,'');return digits.length===10?`+1${digits}`:digits.length===11&&digits.startsWith('1')?`+${digits}`:null}
 export async function POST(req:Request){
   try{
     const body=await req.json(),phone=normalizePhone(String(body.phone||'')),firstName=String(body.first_name||'').trim(),lastName=String(body.last_name||'').trim();
     if(!phone||!firstName||!lastName)return NextResponse.json({error:'Add your name and a valid US phone number.'},{status:400});
+    if(isPlaceholderPhone(phone))return NextResponse.json({error:'Placeholder profiles cannot sign in. Use your real phone number to join.'},{status:400});
     const s=db(),{data:trip}=await s.from('trips').select('id').eq('invite_code',body.code).maybeSingle();
     if(!trip)return NextResponse.json({error:'This invite link is no longer valid.'},{status:404});
     let {data:user}=await s.from('users').select('id,first_name').eq('phone',phone).maybeSingle();

@@ -5,7 +5,7 @@ Roam helps a group get from “I'm down” to a trip everyone has committed to. 
 ## Setup
 
 1. Create a [Supabase project](https://supabase.com/dashboard).
-2. In Supabase SQL Editor, run `supabase/migrations/0001_roam.sql`, then `supabase/migrations/0002_planning_and_accounts.sql`.
+2. In Supabase SQL Editor, run `supabase/migrations/0001_roam.sql`, `supabase/migrations/0002_planning_and_accounts.sql`, and `supabase/migrations/0003_trip_day_cities.sql` in order.
 3. Use Node.js 22 (`.nvmrc` pins the runtime). Copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_APP_URL`, `SUPABASE_SECRET_KEY`, `TEAM_DASHBOARD_PASSWORD`, and `CRON_SECRET`. The secret key must stay server-side.
 4. Install dependencies with `npm install`.
 5. Start locally with `npm run dev`, then open `http://localhost:3000` on a phone or use the browser's device preview.
@@ -22,7 +22,7 @@ Roam helps a group get from “I'm down” to a trip everyone has committed to. 
 
 ## Demo seed
 
-After applying both migrations, run `npm run seed:demo`. It creates or refreshes a clearly labeled fake **Demo – Tulum Spring Break** trip at `/t/demo-tulum-2027`. Demo trips are excluded from team demand metrics.
+After applying the migrations, run `npm run seed:demo`. It creates or refreshes a clearly labeled fake **Demo – Tulum Spring Break** trip at `/t/demo-tulum-2027`. Demo trips are excluded from team demand metrics.
 
 The first organizer's name and phone are collected during trip setup. Sign-in asks for phone and first name and uses a long-lived httpOnly session cookie. Phone ownership is not verified in this MVP; replace this with SMS OTP before public launch.
 

@@ -29,7 +29,7 @@ export default async function TripPage({params}:Params){
       }
     }
     const [{data:rawMembers},{data:me}]=await Promise.all([
-      s.from('trip_members').select('user_id,role,status,payment_status,users(first_name,last_name)').eq('trip_id',trip.id),
+      s.from('trip_members').select('user_id,role,status,payment_status,users(first_name,last_name,phone)').eq('trip_id',trip.id),
       userId?s.from('trip_members').select('role,status,payment_status').eq('trip_id',trip.id).eq('user_id',userId).maybeSingle():Promise.resolve({data:null})
     ]);
     const members=(rawMembers||[]).map(m=>({...m,users:Array.isArray(m.users)?m.users[0]||null:m.users}));
