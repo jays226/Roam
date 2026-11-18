@@ -5,7 +5,7 @@ Roam helps a group get from “I'm down” to a trip everyone has committed to. 
 ## Setup
 
 1. Create a [Supabase project](https://supabase.com/dashboard).
-2. In Supabase SQL Editor, run `supabase/migrations/0001_roam.sql` through `supabase/migrations/0006_notifications.sql` in numeric order. Migrations `0004`–`0006` add journey fields, public trip templates and points, and scheduled in-app reminders; they leave existing trip data intact.
+2. In Supabase SQL Editor, run `supabase/migrations/0001_roam.sql` through `supabase/migrations/0007_explore_sample_templates.sql` in numeric order. Migrations `0004`–`0006` add journey fields, public trip templates and points, and scheduled in-app reminders. Migration `0007` seeds ten fictional public Explore examples; it is safe to rerun and marks its source trips as demos. Migrations are additive and preserve existing trip data.
 3. Use Node.js 22 (`.nvmrc` pins the runtime). Copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_APP_URL`, `SUPABASE_SECRET_KEY`, `TEAM_DASHBOARD_PASSWORD`, and `CRON_SECRET`. `UNSPLASH_ACCESS_KEY` and `PEXELS_API_KEY` are optional; without them the UI uses gradient fallbacks. The Supabase secret key must stay server-side.
 4. Install dependencies with `npm install`.
 5. Start locally with `npm run dev`, then open `http://localhost:3000` on a phone or use the browser's device preview.
