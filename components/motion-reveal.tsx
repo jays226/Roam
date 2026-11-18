@@ -3,7 +3,11 @@
 import type {ReactNode} from 'react';
 import {motion,useReducedMotion} from 'motion/react';
 
-export default function MotionReveal({children,className='',delay=0}:{children:ReactNode;className?:string;delay?:number}){
+type RevealDirection='up'|'left'|'right'|'scale';
+
+export default function MotionReveal({children,className='',delay=0,direction='up'}:{children:ReactNode;className?:string;delay?:number;direction?:RevealDirection}){
   const reduce=useReducedMotion();
-  return <motion.div className={className} initial={reduce?false:{opacity:0,y:14,scale:.99}} whileInView={{opacity:1,y:0,scale:1}} viewport={{once:true,amount:.12}} transition={{duration:reduce ? 0.16 : 0.24,delay:reduce?0:delay,ease:'easeOut'}}>{children}</motion.div>;
+  const offsets={up:{y:24,x:0,scale:.98},left:{y:0,x:-28,scale:1},right:{y:0,x:28,scale:1},scale:{y:0,x:0,scale:.94}};
+  const offset=offsets[direction];
+  return <motion.div className={className} initial={reduce?{opacity:0}:{opacity:0,...offset}} whileInView={{opacity:1,x:0,y:0,scale:1}} viewport={{once:true,amount:.16,margin:'0px 0px -36px 0px'}} transition={reduce?{duration:.16}:{type:'spring',stiffness:115,damping:20,delay}}>{children}</motion.div>;
 }
