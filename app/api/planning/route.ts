@@ -31,7 +31,12 @@ export async function GET(req:Request){
     if(tripDays.error&&!['42P01','PGRST205'].includes(tripDays.error.code||''))throw tripDays.error;
     if(travel.error&&!['42P01','PGRST205'].includes(travel.error.code||''))throw travel.error;
     if(tripCities.error&&!['42P01','PGRST205'].includes(tripCities.error.code||''))throw tripCities.error;
-    return NextResponse.json({user_id:uid,options:options.data||[],polls:polls.data||[],availability:availability.data||[],itinerary:itinerary.data||[],comments:comments.data||[],chat:chat.data||[],members:members.data||[],expenses:expenses.data||[],requests:requests.data||[],pulses:pulses.data||[],origins:origins.data||[],events:events.data||[],days:tripDays.data||[],travel:(travel.data||[]).map(item=>({...item,users:Array.isArray(item.users)?item.users[0]||null:item.users})),cities:tripCities.data||[]});
+    let tripQuery=await s.from('trips').select('destination,start_date,end_date,date_mode,window_start,window_end,nights,planning_mode,journey_stage').eq('id',tripId).maybeSingle();
+    if(tripQuery.error&&['42703','PGRST204'].includes(tripQuery.error.code||'')){
+      const legacy=await s.from('trips').select('destination,start_date,end_date,date_mode,window_start,window_end,nights,planning_mode').eq('id',tripId).maybeSingle();if(legacy.error)throw legacy.error;
+      tripQuery={...legacy,data:legacy.data?{...legacy.data,journey_stage:legacy.data.planning_mode==='assisted'?'choose':'itinerary'}:null};
+    }else if(tripQuery.error)throw tripQuery.error;
+    return NextResponse.json({user_id:uid,trip:tripQuery.data||null,options:options.data||[],polls:polls.data||[],availability:availability.data||[],itinerary:itinerary.data||[],comments:comments.data||[],chat:chat.data||[],members:members.data||[],expenses:expenses.data||[],requests:requests.data||[],pulses:pulses.data||[],origins:origins.data||[],events:events.data||[],days:tripDays.data||[],travel:(travel.data||[]).map(item=>({...item,users:Array.isArray(item.users)?item.users[0]||null:item.users})),cities:tripCities.data||[]});
   }catch(e){return fail(e instanceof Error?e.message:'Could not load the plan.',401)}
 }
 
@@ -40,6 +45,38 @@ export async function POST(req:Request){
     const x=await req.json(),tripId=String(x.trip_id||''),action=String(x.action||'');if(!tripId)return fail('Trip ID is required.');
     const {uid,role,s}=await authorize(tripId);
     const planner=['admin','planner'].includes(role),admin=role==='admin';
+    if(action==='assisted_decision'){
+      if(!planner)return fail('Only the organizers can choose the destination and dates.',403);
+      const destination=String(x.destination||'').trim().slice(0,180),startDate=String(x.start_date||''),endDate=String(x.end_date||'');
+      const validDate=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(`${value}T12:00:00Z`));
+      if(!destination||!validDate(startDate)||!validDate(endDate)||endDate<startDate)return fail('Choose a destination and a valid date range.');
+      const nights=Math.max(1,Math.round((Date.parse(`${endDate}T12:00:00Z`)-Date.parse(`${startDate}T12:00:00Z`))/86400000));
+      const update=await s.from('trips').update({destination,start_date:startDate,end_date:endDate,date_mode:'exact',window_start:null,window_end:null,nights,journey_stage:'travel'}).eq('id',tripId);
+      if(update.error){if(/journey_stage|column|schema cache/i.test(update.error.message))return fail('Apply supabase/migrations/0008_assisted_journey.sql to turn on the guided AI planning flow.',503);throw update.error;}
+      await s.from('member_travel').delete().eq('trip_id',tripId);
+      await s.from('trip_cities').delete().eq('trip_id',tripId);
+      const cityNames=destination.split(/\s*(?:→|>|\|)\s*/).filter(Boolean);let startDay=1;
+      const cityRows=cityNames.map((city:string,index:number)=>{const cityNights=index===cityNames.length-1?Math.max(1,nights-(cityNames.length-1)):Math.max(1,Math.floor(nights/cityNames.length)),row={trip_id:tripId,city,position:index,start_day:startDay,nights:cityNights};startDay+=cityNights;return row;});
+      if(cityRows.length){const citySave=await s.from('trip_cities').insert(cityRows);if(citySave.error&&!['42P01','PGRST205'].includes(citySave.error.code||''))throw citySave.error;}
+      await emit(s,tripId,uid,'assisted_destination_dates_chosen',{destination,date_mode:'exact',nights});return NextResponse.json({ok:true});
+    }
+    if(action==='assisted_revise'){
+      if(!planner)return fail('Only the organizers can change the destination and dates.',403);
+      const {error}=await s.from('trips').update({journey_stage:'choose'}).eq('id',tripId);
+      if(error){if(/journey_stage|column|schema cache/i.test(error.message))return fail('Apply supabase/migrations/0008_assisted_journey.sql to turn on the guided AI planning flow.',503);throw error;}
+      return NextResponse.json({ok:true});
+    }
+    if(action==='assisted_continue'){
+      if(!planner)return fail('Only the organizers can open the itinerary.',403);
+      const [tripResult,memberResult,travelResult]=await Promise.all([s.from('trips').select('journey_stage,planning_mode').eq('id',tripId).single(),s.from('trip_members').select('user_id,status').eq('trip_id',tripId),s.from('member_travel').select('user_id,mode').eq('trip_id',tripId)]);
+      if(tripResult.error){if(/journey_stage|column|schema cache/i.test(tripResult.error.message))return fail('Apply supabase/migrations/0008_assisted_journey.sql to turn on the guided AI planning flow.',503);throw tripResult.error;}
+      if(memberResult.error)throw memberResult.error;if(travelResult.error&&!['42P01','PGRST205'].includes(travelResult.error.code||''))throw travelResult.error;
+      const active=(memberResult.data||[]).filter(member=>member.status==='in'),ready=new Set((travelResult.data||[]).filter(row=>row.mode).map(row=>row.user_id));
+      if(tripResult.data.planning_mode!=='assisted'||tripResult.data.journey_stage!=='travel')return fail('This trip is not at the travel step.');
+      if(!active.length||active.some(member=>!ready.has(member.user_id)))return fail('Everyone who is in needs to add a travel plan before the itinerary opens.');
+      const {error}=await s.from('trips').update({journey_stage:'itinerary'}).eq('id',tripId);if(error)throw error;
+      await emit(s,tripId,uid,'assisted_itinerary_unlocked',{travelers:active.length});return NextResponse.json({ok:true});
+    }
     if(action==='option_add'||action==='suggest'){
       const title=String(x.title||'').trim();if(!title)return fail('Add a name or a link.');
       if(action==='option_add'&&!planner)return fail('Only planners can add shortlist options.',403);

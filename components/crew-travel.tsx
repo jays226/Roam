@@ -4,7 +4,7 @@ import {useMemo,useState} from 'react';
 import {Check,ExternalLink,Plane,Train,Car,MapPin} from 'lucide-react';
 
 type Member={user_id:string;users:{first_name:string;last_name:string}|null};
-type Travel={user_id:string;mode:string|null;origin:string|null;carrier:string|null;travel_number:string|null;depart_at:string|null;arrive_at:string|null;return_depart_at:string|null;return_arrive_at:string|null;booked:boolean;users?:{first_name:string;last_name:string}|null};
+type Travel={user_id:string;mode:string|null;origin:string|null;carrier:string|null;travel_number:string|null;depart_at:string|null;arrive_at:string|null;return_depart_at:string|null;return_arrive_at:string|null;booked:boolean;users?:{first_name:string;last_name?:string}|null};
 type Provider={buildFlightSearch:(origin:string,destination:string,start:string,end:string)=>string};
 const FlightSearchProvider:Provider={buildFlightSearch(origin,destination,start,end){const query=`Flights from ${origin||'my city'} to ${destination||'destination'}${start?` on ${start}`:''}${end?` through ${end}`:''}`;return `https://www.google.com/travel/flights?q=${encodeURIComponent(query)}`}};
 const plusDays=(date:string,offset:number)=>{const value=new Date(`${date}T12:00:00`);value.setDate(value.getDate()+offset);return value.toISOString().slice(0,10)};
