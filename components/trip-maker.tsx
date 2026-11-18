@@ -1,0 +1,7 @@
+'use client';
+
+import {useEffect,useState} from 'react';
+import Link from 'next/link';
+import {Award,Compass,Star} from 'lucide-react';
+type Row={id:string;title:string;published:boolean;uses:number};
+export default function TripMaker(){const [data,setData]=useState<{templates:Row[];points:number}|null>(null);useEffect(()=>{fetch('/api/templates/stats').then(r=>r.ok?r.json():null).then(value=>value&&setData(value)).catch(()=>{})},[]);if(!data)return null;const copies=data.templates.reduce((sum,row)=>sum+row.uses,0),published=data.templates.filter(row=>row.published).length;return <section className="card trip-maker"><div className="row"><div><div className="eyebrow">TRIP-MAKER</div><h2 style={{margin:'6px 0'}}>Your crew has good taste.</h2></div><Award color="#f59a3c"/></div><div className="trip-maker-stats"><span><b>{published}</b><small>templates</small></span><span><b>{copies}</b><small>crew copies</small></span><span><b>{data.points}</b><small>Roam points</small></span></div><div className="trip-maker-badges">{published>0&&<span className="chip status-amber"><Star size={13}/>First template</span>}{copies>=10&&<span className="chip status-green"><Compass size={13}/>10 crews used your trip</span>}</div>{data.templates.slice(0,4).map(row=><Link key={row.id} className="trip-maker-row" href={`/explore/${row.id}`}><span>{row.title}{!row.published&&<small className="muted"> · Draft</small>}</span><small>{row.uses} crews</small></Link>)}<p className="muted">Perks coming soon. Points are for bragging rights for now.</p></section>}

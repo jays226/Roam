@@ -1,15 +1,15 @@
 # Roam
 
-Roam helps a group get from “I'm down” to a trip everyone has committed to. This repo currently implements the Phase 1 foundation: trip creation, invite joining, commitment, manual deposit status, event logging, and scheduled auto-out. Later phases from the product brief are not implemented yet.
+Roam helps a group get from “I'm down” to a trip everyone has committed to. It includes trip creation and invites, commitments and deposits, shared planning, crew, chat, money tracking, activity, trip photos, and a responsive trip workspace. The customer-journey redesign is being delivered in phases; see the migration and current setup notes below.
 
 ## Setup
 
 1. Create a [Supabase project](https://supabase.com/dashboard).
-2. In Supabase SQL Editor, run `supabase/migrations/0001_roam.sql`, `supabase/migrations/0002_planning_and_accounts.sql`, and `supabase/migrations/0003_trip_day_cities.sql` in order.
-3. Use Node.js 22 (`.nvmrc` pins the runtime). Copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_APP_URL`, `SUPABASE_SECRET_KEY`, `TEAM_DASHBOARD_PASSWORD`, and `CRON_SECRET`. The secret key must stay server-side.
+2. In Supabase SQL Editor, run `supabase/migrations/0001_roam.sql` through `supabase/migrations/0006_notifications.sql` in numeric order. Migrations `0004`–`0006` add journey fields, public trip templates and points, and scheduled in-app reminders; they leave existing trip data intact.
+3. Use Node.js 22 (`.nvmrc` pins the runtime). Copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_APP_URL`, `SUPABASE_SECRET_KEY`, `TEAM_DASHBOARD_PASSWORD`, and `CRON_SECRET`. `UNSPLASH_ACCESS_KEY` and `PEXELS_API_KEY` are optional; without them the UI uses gradient fallbacks. The Supabase secret key must stay server-side.
 4. Install dependencies with `npm install`.
 5. Start locally with `npm run dev`, then open `http://localhost:3000` on a phone or use the browser's device preview.
-6. Deploy the repo to Vercel, add the same environment variables in Project Settings (set `NEXT_PUBLIC_APP_URL` to the deployed URL), and deploy. Vercel runs the configured daily auto-out cron using `CRON_SECRET`.
+6. Deploy the repo to Vercel, add the same environment variables in Project Settings (set `NEXT_PUBLIC_APP_URL` to the deployed URL), and deploy. Vercel runs the configured daily auto-out and reminder cron using `CRON_SECRET`. Reminder delivery is currently in-app and queued for the team poke workflow; automated SMS/push delivery is not enabled.
 
 ## Core flow
 
@@ -18,6 +18,9 @@ Roam helps a group get from “I'm down” to a trip everyone has committed to. 
 - The organizer can set Venmo/Cash App details in Supabase for a trip, review sent deposits, and confirm them.
 - Sign in later at `/login` with your phone and first name. `/trips` lists all trips linked to your profile; `/profile` edits your name and origin airport.
 - Open a trip's Plan board to shortlist, suggest, vote, record availability, build an itinerary, chat, request booking help, and track shared expenses.
+- Use the trip tabs for Overview, Plan, Crew, Money, and Chat. Explore templates are public; publishing previews remove private names, phone numbers, dates, confirmations, and exact costs.
+- During a trip, Overview switches to Today. Admins can preview Today mode before departure. Afterward, Money shows suggested settlements from shared expenses.
+- In Explore, try **Use this trip** to copy editable blocks to a new trip. For copied plans, a 1–5 rating appears once the new trip ends.
 - Every implemented core action is written to `events`.
 
 ## Demo seed
@@ -37,3 +40,7 @@ All database operations use server routes and the Supabase secret key. Phone num
 - Manual payment confirmation; no funds are collected by Roam
 - PWA manifest and install metadata
 - `AuthProvider`/SMS OTP, Stripe Connect, automated notification, and booking integrations remain future seams
+
+## Journey flow smoke check
+
+On a phone-sized browser (375px), check: landing → create a multi-city trip → invite and join on another device → commit and record a deposit → move a block on the Trip Board → add travel → publish to Explore → use the template while logged out → open the resulting trip → preview Today mode as an admin. Enable reduced motion in the device accessibility settings and check the landing and commit confirmation again.

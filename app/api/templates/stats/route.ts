@@ -1,0 +1,4 @@
+import {NextResponse} from 'next/server';
+import {currentUserId} from '@/lib/session';
+import {db} from '@/lib/supabase';
+export async function GET(){try{const userId=await currentUserId();if(!userId)return NextResponse.json({error:'Sign in to see creator stats.'},{status:401});const s=db(),[templates,points]=await Promise.all([s.from('templates').select('id,title,published,created_at,template_uses(count)').eq('creator_user_id',userId).order('created_at',{ascending:false}),s.from('points_ledger').select('amount').eq('user_id',userId)]);if(templates.error)throw templates.error;if(points.error)throw points.error;return NextResponse.json({templates:(templates.data||[]).map(row=>({...row,uses:row.template_uses?.[0]?.count||0})),points:(points.data||[]).reduce((sum,row)=>sum+Number(row.amount||0),0)})}catch(error){return NextResponse.json({error:error instanceof Error?error.message:'Could not load creator stats.'},{status:400})}}

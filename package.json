@@ -11,11 +11,16 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test:privacy": "node --test scripts/template-privacy.test.mjs",
     "seed:demo": "node --env-file=.env.local scripts/seed-demo.mjs"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.49.1",
     "lucide-react": "^0.468.0",
+    "motion": "^14.14.0",
     "next": "15.5.29",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

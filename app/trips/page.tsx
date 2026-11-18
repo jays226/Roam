@@ -2,7 +2,9 @@
 
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {ArrowRight,CalendarDays,Compass,Mountain,Plus,Trash2,UserRound,Users} from 'lucide-react';
+import {ArrowRight,CalendarDays,Compass,Mountain,Plus,Trash2,UserRound} from 'lucide-react';
+import AppNav from '@/components/app-nav';
+import {TripListSkeleton} from '@/components/skeleton';
 
 type Trip={id:string;name:string;destination:string|null;start_date:string|null;end_date:string|null;commit_deadline:string;invite_code:string;deposit_amount:number;cover_image:string|null};
 type Row={trip:Trip;membership:{role:string;status:string;payment_status:string}};
@@ -52,7 +54,7 @@ export default function Trips(){
         <div><div className="eyebrow">YOUR CREW, YOUR GETAWAYS</div><h1 style={{fontSize:34,margin:'8px 0'}}>Your trips</h1></div>
         <Link href="/create" className="btn"><Plus size={18}/> Start trip</Link>
       </div>
-      {loading&&<div className="card muted">Loading your trips…</div>}
+      {loading&&<TripListSkeleton/>}
       {error&&<div className="card"><h2>Sign in to see your trips</h2><p className="muted">Your trips are saved to your phone-number profile.</p><Link className="btn" href="/login">Sign in <ArrowRight size={16}/></Link></div>}
       {actionError&&<div className="card" role="alert" style={{color:'#e5484d'}}>{actionError}</div>}
       {!loading&&!error&&rows.length===0&&<div className="card"><div className="avatar"><Compass size={18}/></div><h2>No trips yet</h2><p className="muted">Start one, or join a friend from their invite link. Your trips will all show up here.</p><Link className="btn" href="/create">Start a trip <ArrowRight size={16}/></Link></div>}
@@ -74,6 +76,6 @@ export default function Trips(){
         </article>)}
       </div>
     </section>
-    <nav className="nav"><Link className="active" href="/trips"><Mountain size={19}/>Trips</Link><Link href="/trips"><Users size={19}/>Activity</Link><Link href="/explore"><Compass size={19}/>Explore</Link><Link href="/profile"><UserRound size={19}/>Profile</Link></nav>
+    <AppNav active="trips"/>
   </main>;
 }
